@@ -8,10 +8,11 @@ import ResultsDashboard from './ResultsDashboard';
 import AgentThinking from './AgentThinking';
 
 interface RunPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, data?: any) => void;
+  onResultsReady: (result: DiscoveryResult) => void;
 }
 
-const RunPage: React.FC<RunPageProps> = ({ onNavigate }) => {
+const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DiscoveryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,7 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate }) => {
       }
 
       setResult(discoveryResult);
+      onResultsReady(discoveryResult);
       setIsRunning(false);
     } catch (err) {
       setError((err as Error).message);
@@ -95,13 +97,9 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate }) => {
     setAgentThoughts([]);
   };
 
-  if (result) {
-    return (
-      <div className="run-page">
-        <ResultsDashboard result={result} onReset={handleReset} />
-      </div>
-    );
-  }
+  const handleViewResults = () => {
+    onNavigate('results');
+  };
 
   return (
     <div className="run-page">
@@ -186,6 +184,36 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate }) => {
                 <span className="button-icon">→</span>
               </button>
             </form>
+          </div>
+        ) : result ? (
+          <div className="completion-screen">
+            <div className="completion-icon">✓</div>
+            <h2>Discovery Complete!</h2>
+            <p>Your molecules have been generated and evaluated.</p>
+
+            <div className="completion-stats">
+              <div className="stat-item">
+                <span className="stat-value">{result.response.molecules_generated}</span>
+                <span className="stat-label">Molecules Generated</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value">{result.response.molecules_passed}</span>
+                <span className="stat-label">Passed Evaluation</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value">${(result.final_report?.budget_summary?.spent || 0).toFixed(2)}</span>
+                <span className="stat-label">Budget Spent</span>
+              </div>
+            </div>
+
+            <div className="completion-actions">
+              <button onClick={handleViewResults} className="btn-view-results">
+                View Detailed Results
+              </button>
+              <button onClick={handleReset} className="btn-new-run-secondary">
+                Start New Discovery
+              </button>
+            </div>
           </div>
         ) : (
           <div className="agent-activity-fullscreen">

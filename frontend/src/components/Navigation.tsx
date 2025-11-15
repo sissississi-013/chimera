@@ -12,6 +12,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate }) => {
   const navItems = [
     { id: 'home', label: 'Home' },
     { id: 'run', label: 'Run' },
+    { id: 'library', label: 'Library' },
     { id: 'market', label: 'Market' },
     { id: 'agents', label: 'Agents' },
   ];

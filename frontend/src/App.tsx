@@ -8,12 +8,24 @@ import HomePage from './components/HomePage';
 import RunPage from './components/RunPage';
 import MarketPage from './components/MarketPage';
 import AgentsPage from './components/AgentsPage';
+import ResultsDashboard from './components/ResultsDashboard';
+import LibraryPage from './components/LibraryPage';
+import type { DiscoveryResult } from './types';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const [currentResult, setCurrentResult] = useState<DiscoveryResult | null>(null);
+  const [savedMolecules, setSavedMolecules] = useState<any[]>([]);
 
-  const handleNavigate = (page: string) => {
+  const handleNavigate = (page: string, data?: any) => {
+    if (page === 'results' && data) {
+      setCurrentResult(data);
+    }
     setCurrentPage(page);
+  };
+
+  const handleSaveMolecules = (molecules: any[]) => {
+    setSavedMolecules(prev => [...prev, ...molecules]);
   };
 
   const renderPage = () => {
@@ -21,7 +33,19 @@ function App() {
       case 'home':
         return <HomePage onNavigate={handleNavigate} />;
       case 'run':
-        return <RunPage onNavigate={handleNavigate} />;
+        return <RunPage onNavigate={handleNavigate} onResultsReady={setCurrentResult} />;
+      case 'results':
+        return currentResult ? (
+          <ResultsDashboard
+            result={currentResult}
+            onReset={() => handleNavigate('run')}
+            onSaveToLibrary={handleSaveMolecules}
+          />
+        ) : (
+          <div className="no-results">No results available. Run a discovery first.</div>
+        );
+      case 'library':
+        return <LibraryPage molecules={savedMolecules} onNavigate={handleNavigate} />;
       case 'market':
         return <MarketPage />;
       case 'agents':
