@@ -1,0 +1,9 @@
+{
+  "goal": "Find a novel molecule to inhibit EGFR kinase with low toxicity",
+  "target": "EGFR",
+  "budget": 5.0,
+  "constraints": {
+    "max_toxicity": 0.5,
+    "min_drug_likeness": 0.6
+  }
+}
