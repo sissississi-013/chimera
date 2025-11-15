@@ -111,95 +111,125 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate }) => {
           <p>Configure and execute autonomous drug discovery</p>
         </div>
 
-        <div className="run-content">
+        {!isRunning ? (
           <div className="run-form-container">
             <form onSubmit={handleSubmit} className="run-form">
-              <div className="form-group">
-                <label>Discovery Goal</label>
-                <textarea
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Describe what you want to discover..."
-                  rows={3}
-                  required
-                  disabled={isRunning}
-                />
-              </div>
-
-              <div className="form-row">
+              <div className="form-section">
+                <h3 className="form-section-title">Objective</h3>
                 <div className="form-group">
-                  <label>Target</label>
-                  <input
-                    type="text"
-                    value={target}
-                    onChange={(e) => setTarget(e.target.value)}
-                    placeholder="e.g., EGFR, VEGFR"
-                    disabled={isRunning}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Budget (USD)</label>
-                  <input
-                    type="number"
-                    value={budget}
-                    onChange={(e) => setBudget(parseFloat(e.target.value))}
-                    min="0.1"
-                    max="100"
-                    step="0.1"
+                  <label>Discovery Goal</label>
+                  <textarea
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    placeholder="Describe what you want to discover..."
+                    rows={3}
                     required
                     disabled={isRunning}
                   />
                 </div>
+
+                <div className="form-group">
+                  <label>Target Protein</label>
+                  <input
+                    type="text"
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    placeholder="e.g., EGFR, VEGFR, BCR-ABL"
+                    disabled={isRunning}
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Max Toxicity Threshold: {maxToxicity.toFixed(2)}</label>
-                <input
-                  type="range"
-                  value={maxToxicity}
-                  onChange={(e) => setMaxToxicity(parseFloat(e.target.value))}
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  disabled={isRunning}
-                  className="slider"
-                />
+              <div className="form-section">
+                <h3 className="form-section-title">Parameters</h3>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Budget</label>
+                    <div className="input-with-unit">
+                      <span className="input-currency">$</span>
+                      <input
+                        type="number"
+                        value={budget}
+                        onChange={(e) => setBudget(parseFloat(e.target.value))}
+                        min="0.1"
+                        max="100"
+                        step="0.1"
+                        required
+                        disabled={isRunning}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Toxicity Threshold</label>
+                    <div className="slider-value">{maxToxicity.toFixed(2)}</div>
+                    <input
+                      type="range"
+                      value={maxToxicity}
+                      onChange={(e) => setMaxToxicity(parseFloat(e.target.value))}
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      disabled={isRunning}
+                      className="slider"
+                    />
+                    <div className="slider-labels">
+                      <span>Safe</span>
+                      <span>Toxic</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <button type="submit" className="run-button" disabled={isRunning}>
-                {isRunning ? 'Running...' : 'Execute Discovery'}
+                <span className="button-text">Execute Discovery</span>
+                <span className="button-icon">→</span>
               </button>
             </form>
           </div>
+        ) : (
+          <div className="agent-activity-fullscreen">
+            <div className="activity-header">
+              <div className="activity-status">
+                <div className="status-pulse"></div>
+                <span>Agent Running...</span>
+              </div>
+            </div>
 
-          {isRunning && (
-            <div className="agent-activity">
+            <div className="activity-grid">
               <AgentThinking thoughts={agentThoughts} />
 
               <div className="activity-logs">
                 <h3>System Logs</h3>
                 <div className="logs-container">
-                  {logs.map((log, index) => (
-                    <div key={index} className="log-entry">
-                      {log}
-                    </div>
-                  ))}
+                  {logs.length === 0 ? (
+                    <div className="log-entry log-placeholder">Waiting for logs...</div>
+                  ) : (
+                    logs.map((log, index) => (
+                      <div key={index} className="log-entry">
+                        <span className="log-time">[{new Date().toLocaleTimeString()}]</span>
+                        <span className="log-text">{log}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {error && (
-            <div className="error-container">
-              <h3>Error</h3>
+        {error && (
+          <div className="error-container">
+            <div className="error-icon">!</div>
+            <div className="error-content">
+              <h3>Error Occurred</h3>
               <p>{error}</p>
               <button onClick={handleReset} className="reset-button">
                 Try Again
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

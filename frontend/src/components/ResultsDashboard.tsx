@@ -22,53 +22,67 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset }) 
     <div className="results-dashboard">
       {/* Header */}
       <div className="results-header">
-        <h2>Discovery Results</h2>
-        <button onClick={onReset} className="btn-secondary">
-          Start New Run
+        <div className="results-title-section">
+          <h2>Discovery Results</h2>
+          <div className="status-badge" data-status={response.status}>
+            {response.status === 'success' ? '✓' : '✗'} {response.status.toUpperCase()}
+          </div>
+        </div>
+        <button onClick={onReset} className="btn-new-run">
+          New Discovery Run
         </button>
       </div>
 
-      {/* Status Card */}
-      <div className="status-card">
-        <div className="status-badge" data-status={response.status}>
-          {response.status === 'success' ? '✓' : '✗'} {response.status.toUpperCase()}
+      {/* Status Message */}
+      {response.message && (
+        <div className="status-message-card">
+          <p>{response.message}</p>
         </div>
-        <p className="status-message">{response.message}</p>
-      </div>
+      )}
 
       {/* Summary Grid */}
       <div className="summary-grid">
         <div className="summary-card">
-          <div className="summary-icon">🧬</div>
-          <div className="summary-content">
-            <div className="summary-value">{response.molecules_generated}</div>
-            <div className="summary-label">Molecules Generated</div>
+          <div className="summary-label">Molecules Generated</div>
+          <div className="summary-value">{response.molecules_generated}</div>
+          <div className="summary-bar">
+            <div className="summary-bar-fill" style={{ width: '100%', background: 'var(--primary)' }}></div>
           </div>
         </div>
 
         <div className="summary-card">
-          <div className="summary-icon">✓</div>
-          <div className="summary-content">
-            <div className="summary-value">{response.molecules_passed}</div>
-            <div className="summary-label">Passed Evaluation</div>
+          <div className="summary-label">Passed Evaluation</div>
+          <div className="summary-value">{response.molecules_passed}</div>
+          <div className="summary-bar">
+            <div
+              className="summary-bar-fill"
+              style={{
+                width: `${(response.molecules_passed / response.molecules_generated) * 100}%`,
+                background: 'var(--success)'
+              }}
+            ></div>
           </div>
         </div>
 
         <div className="summary-card">
-          <div className="summary-icon">💰</div>
-          <div className="summary-content">
-            <div className="summary-value">${budgetSpent.toFixed(2)}</div>
-            <div className="summary-label">Budget Spent</div>
+          <div className="summary-label">Budget Spent</div>
+          <div className="summary-value">${budgetSpent.toFixed(2)}</div>
+          <div className="summary-bar">
+            <div
+              className="summary-bar-fill"
+              style={{
+                width: `${budgetPercent}%`,
+                background: 'var(--pink)'
+              }}
+            ></div>
           </div>
         </div>
 
         <div className="summary-card">
-          <div className="summary-icon">🔄</div>
-          <div className="summary-content">
-            <div className="summary-value">
-              {final_report?.execution_summary?.iterations || 1}
-            </div>
-            <div className="summary-label">Iterations</div>
+          <div className="summary-label">Iterations</div>
+          <div className="summary-value">{final_report?.execution_summary?.iterations || 1}</div>
+          <div className="summary-bar">
+            <div className="summary-bar-fill" style={{ width: '100%', background: 'var(--accent)' }}></div>
           </div>
         </div>
       </div>
