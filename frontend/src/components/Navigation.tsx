@@ -19,7 +19,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate }) => {
   return (
     <nav className="navigation">
       <div className="nav-container">
-        <div className="nav-logo">
+        <div className="nav-logo" onClick={() => onNavigate('home')} style={{ cursor: 'pointer' }}>
           <img src="/web_icon.png" alt="Chimera" className="nav-logo-icon" />
         </div>
 
