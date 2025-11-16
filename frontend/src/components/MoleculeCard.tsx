@@ -1,8 +1,9 @@
 /**
- * Molecule Card Component - Display individual molecule details
+ * Molecule Card Component - Display individual molecule details with 3D visualization
  */
-import React from 'react';
+import React, { useState } from 'react';
 import type { Molecule } from '../types';
+import Molecule3DViewer from './Molecule3DViewer';
 
 interface MoleculeCardProps {
   molecule: Molecule;
@@ -10,6 +11,7 @@ interface MoleculeCardProps {
 
 const MoleculeCard: React.FC<MoleculeCardProps> = ({ molecule }) => {
   const { name, smiles, properties, visualization_url, status } = molecule;
+  const [show3D, setShow3D] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -38,8 +40,11 @@ const MoleculeCard: React.FC<MoleculeCardProps> = ({ molecule }) => {
 
       {/* Visualization */}
       {visualization_url && (
-        <div className="molecule-viz">
+        <div className="molecule-viz" onClick={() => setShow3D(true)} style={{ cursor: 'pointer' }}>
           <img src={visualization_url} alt={`Structure of ${name}`} />
+          <div className="view-3d-overlay">
+            <span className="view-3d-button">🔍 Click to view in 3D</span>
+          </div>
         </div>
       )}
 
@@ -163,6 +168,49 @@ const MoleculeCard: React.FC<MoleculeCardProps> = ({ molecule }) => {
           </span>
         </div>
       </div>
+
+      {/* 3D Viewer Modal */}
+      {show3D && (
+        <Molecule3DViewer
+          smiles={smiles}
+          name={name}
+          onClose={() => setShow3D(false)}
+        />
+      )}
+
+      <style jsx>{`
+        .molecule-viz {
+          position: relative;
+          transition: transform 0.2s;
+        }
+
+        .molecule-viz:hover {
+          transform: scale(1.02);
+        }
+
+        .view-3d-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+          padding: 8px;
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+
+        .molecule-viz:hover .view-3d-overlay {
+          opacity: 1;
+        }
+
+        .view-3d-button {
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+          display: block;
+          text-align: center;
+        }
+      `}</style>
     </div>
   );
 };

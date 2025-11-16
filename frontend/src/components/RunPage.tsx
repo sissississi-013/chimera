@@ -129,39 +129,9 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
           <p>Chat with Chimera to plan your drug discovery campaign</p>
         </div>
 
-        {showChat && !isRunning ? (
+        {showChat && !isRunning && !result ? (
           <div className="chat-mode">
             <ChatInterface onStartDiscovery={handleStartDiscovery} />
-          </div>
-        ) : result ? (
-          <div className="completion-screen">
-            <div className="completion-icon">✓</div>
-            <h2>Discovery Complete!</h2>
-            <p>Your molecules have been generated and evaluated.</p>
-
-            <div className="completion-stats">
-              <div className="stat-item">
-                <span className="stat-value">{result.response.molecules_generated}</span>
-                <span className="stat-label">Molecules Generated</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">{result.response.molecules_passed}</span>
-                <span className="stat-label">Passed Evaluation</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">${(result.final_report?.budget_summary?.spent || 0).toFixed(2)}</span>
-                <span className="stat-label">Budget Spent</span>
-              </div>
-            </div>
-
-            <div className="completion-actions">
-              <button onClick={handleViewResults} className="btn-view-results">
-                View Detailed Results
-              </button>
-              <button onClick={handleReset} className="btn-new-run-secondary">
-                Start New Discovery
-              </button>
-            </div>
           </div>
         ) : (
           <div className="agent-activity-fullscreen">
@@ -218,6 +188,27 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
                 </div>
               </div>
             </div>
+
+            {/* Completion Actions - Show when run is complete */}
+            {result && !isRunning && (
+              <div className="completion-actions-bar">
+                <div className="completion-summary">
+                  <div className="completion-icon-small">✓</div>
+                  <div className="completion-text">
+                    <strong>Discovery Complete!</strong>
+                    <span>{result.response.molecules_generated} molecules generated, {result.response.molecules_passed} passed evaluation</span>
+                  </div>
+                </div>
+                <div className="completion-buttons">
+                  <button onClick={handleViewResults} className="btn-view-results-primary">
+                    View Detailed Results →
+                  </button>
+                  <button onClick={handleReset} className="btn-new-run-outline">
+                    Start New Discovery
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -342,6 +333,91 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
             opacity: 1;
             transform: scale(1.2);
           }
+        }
+
+        .completion-actions-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px 24px;
+          margin: 24px;
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+          border: 2px solid rgba(102, 126, 234, 0.3);
+          border-radius: 12px;
+          animation: slideIn 0.5s ease-out;
+        }
+
+        .completion-summary {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .completion-icon-small {
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          color: white;
+        }
+
+        .completion-text {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .completion-text strong {
+          color: rgba(255, 255, 255, 0.95);
+          font-size: 16px;
+        }
+
+        .completion-text span {
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 14px;
+        }
+
+        .completion-buttons {
+          display: flex;
+          gap: 12px;
+        }
+
+        .btn-view-results-primary {
+          padding: 12px 28px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          border-radius: 8px;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-view-results-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-new-run-outline {
+          padding: 12px 28px;
+          background: transparent;
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          border-radius: 8px;
+          color: rgba(255, 255, 255, 0.9);
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-new-run-outline:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.3);
         }
       `}</style>
     </div>
