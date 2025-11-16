@@ -3,6 +3,7 @@
  */
 import React, { useState } from 'react';
 import type { DiscoveryResult, Molecule } from '../types';
+import Molecule3DViewer from './Molecule3DViewer';
 
 interface ResultsDashboardProps {
   result: DiscoveryResult;
@@ -13,6 +14,8 @@ interface ResultsDashboardProps {
 const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset, onSaveToLibrary }) => {
   const [selectedMolecule, setSelectedMolecule] = useState<Molecule | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [show3D, setShow3D] = useState(false);
+  const [molecule3D, setMolecule3D] = useState<Molecule | null>(null);
 
   const { response, final_report, molecules } = result;
   const passedMolecules = molecules?.filter(m => m.status === 'passed' || m.status === 'monetized') || [];
@@ -168,9 +171,31 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset, on
                   </span>
                 </div>
 
-                <div className="molecule-structure">
-                  {molecule.svg_2d ? (
-                    <div dangerouslySetInnerHTML={{ __html: molecule.svg_2d }} />
+                <div className="molecule-structure" onClick={(e) => {
+                  e.stopPropagation();
+                  setMolecule3D(molecule);
+                  setShow3D(true);
+                }} style={{ cursor: 'pointer', position: 'relative' }}>
+                  {molecule.visualization_url ? (
+                    <>
+                      <img src={molecule.visualization_url} alt={molecule.name} style={{ width: '100%', height: 'auto' }} />
+                      <div className="view-3d-hint" style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        opacity: 0,
+                        transition: 'opacity 0.2s',
+                        pointerEvents: 'none'
+                      }}>
+                        🔍 Click for 3D view
+                      </div>
+                    </>
                   ) : (
                     <div className="molecule-placeholder">
                       <div className="molecule-placeholder-icon">⬡</div>
@@ -251,9 +276,28 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset, on
             </div>
 
             <div className="modal-body">
-              <div className="modal-structure">
-                {selectedMolecule.svg_2d ? (
-                  <div dangerouslySetInnerHTML={{ __html: selectedMolecule.svg_2d }} />
+              <div className="modal-structure" onClick={() => {
+                setMolecule3D(selectedMolecule);
+                setShow3D(true);
+              }} style={{ cursor: 'pointer', position: 'relative' }}>
+                {selectedMolecule.visualization_url ? (
+                  <>
+                    <img src={selectedMolecule.visualization_url} alt={selectedMolecule.name} style={{ width: '100%', height: 'auto', maxWidth: '400px' }} />
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(0, 0, 0, 0.8)',
+                      color: 'white',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      🔍 Click to view in 3D
+                    </div>
+                  </>
                 ) : (
                   <div className="molecule-placeholder-large">⬡</div>
                 )}
@@ -333,6 +377,18 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset, on
           </div>
         </div>
       )}
+
+      {/* 3D Viewer Modal */}
+      {show3D && molecule3D && (
+        <Molecule3DViewer
+          smiles={molecule3D.smiles}
+          name={molecule3D.name}
+          onClose={() => {
+            setShow3D(false);
+            setMolecule3D(null);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -382,6 +438,18 @@ USER_CHARGES
 # LogP: ${molecule.properties?.logp || 'N/A'}
 # Toxicity Score: ${molecule.evaluation?.toxicity_score || 'N/A'}
 `;
+}
+
+// Add CSS for hover effects
+const style = document.createElement('style');
+style.textContent = `
+  .molecule-structure:hover .view-3d-hint {
+    opacity: 1 !important;
+  }
+`;
+if (typeof document !== 'undefined' && !document.getElementById('results-dashboard-styles')) {
+  style.id = 'results-dashboard-styles';
+  document.head.appendChild(style);
 }
 
 export default ResultsDashboard;
