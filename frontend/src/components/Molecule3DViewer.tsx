@@ -34,9 +34,12 @@ const Molecule3DViewer: React.FC<Molecule3DViewerProps> = ({ smiles, name, onClo
           // Clear previous viewer
           viewerRef.current.innerHTML = '';
 
-          // Create new viewer
+          // Create high-quality 3D viewer with anti-aliasing and high resolution
           const viewer = window.$3Dmol.createViewer(viewerRef.current, {
             backgroundColor: 'black',
+            antialias: true,           // Enable anti-aliasing for smooth edges
+            cartoonQuality: 10,        // High quality cartoon rendering
+            hoverDuration: 100,        // Smooth hover effects
           });
 
           // Fetch 3D structure from PubChem using SMILES
@@ -53,22 +56,32 @@ const Molecule3DViewer: React.FC<Molecule3DViewerProps> = ({ smiles, name, onClo
           // Add molecule to viewer
           viewer.addModel(sdfData, 'sdf');
 
-          // Set style - stick representation
+          // Set high-quality stick representation with better visibility
           viewer.setStyle({}, {
             stick: {
               colorscheme: 'Jmol',
-              radius: 0.2
+              radius: 0.25,          // Thicker sticks for better visibility
+              quality: 32            // High-quality cylinders (more segments)
+            },
+            sphere: {
+              scale: 0.3,            // Show atoms as small spheres
+              colorscheme: 'Jmol'
             }
           });
 
-          // Add surface (semi-transparent)
+          // Add high-quality surface (semi-transparent)
           viewer.addSurface(window.$3Dmol.SurfaceType.VDW, {
-            opacity: 0.7,
-            colorscheme: 'Jmol'
+            opacity: 0.5,            // Slightly more transparent
+            colorscheme: 'Jmol',
+            quality: 'high'          // High-quality surface rendering
           });
 
-          // Center and zoom
+          // Center and zoom with optimal view
           viewer.zoomTo();
+          viewer.setViewStyle({ style: 'outline', color: 'black', width: 0.1 });
+
+          // Force high-resolution rendering for retina displays
+          viewer.resize();
           viewer.render();
 
           // Enable rotation
@@ -114,8 +127,10 @@ const Molecule3DViewer: React.FC<Molecule3DViewerProps> = ({ smiles, name, onClo
             className="viewer-3d"
             style={{
               width: '100%',
-              height: '600px',
+              height: '700px',
               position: 'relative',
+              imageRendering: 'high-quality',
+              imageRendering: '-webkit-optimize-contrast',
             }}
           />
         </div>
