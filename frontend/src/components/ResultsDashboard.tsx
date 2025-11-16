@@ -178,7 +178,18 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset, on
                 }} style={{ cursor: 'pointer', position: 'relative' }}>
                   {molecule.visualization_url ? (
                     <>
-                      <img src={molecule.visualization_url} alt={molecule.name} style={{ width: '100%', height: 'auto' }} />
+                      <img
+                        src={molecule.visualization_url}
+                        alt={molecule.name}
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          imageRendering: 'high-quality',
+                          WebkitFontSmoothing: 'antialiased',
+                          backfaceVisibility: 'hidden',
+                          transform: 'translateZ(0)'
+                        }}
+                      />
                       <div className="view-3d-hint" style={{
                         position: 'absolute',
                         bottom: '8px',
@@ -282,7 +293,19 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ result, onReset, on
               }} style={{ cursor: 'pointer', position: 'relative' }}>
                 {selectedMolecule.visualization_url ? (
                   <>
-                    <img src={selectedMolecule.visualization_url} alt={selectedMolecule.name} style={{ width: '100%', height: 'auto', maxWidth: '400px' }} />
+                    <img
+                      src={selectedMolecule.visualization_url}
+                      alt={selectedMolecule.name}
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxWidth: '600px',
+                        imageRendering: 'high-quality',
+                        WebkitFontSmoothing: 'antialiased',
+                        backfaceVisibility: 'hidden',
+                        transform: 'translateZ(0)'
+                      }}
+                    />
                     <div style={{
                       position: 'absolute',
                       bottom: '12px',

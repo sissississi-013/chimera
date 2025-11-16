@@ -87,12 +87,19 @@ class VisualizationModule(BaseModule):
             from rdkit.Chem import AllChem
             AllChem.Compute2DCoords(mol_obj)
 
-            # Draw molecule
-            img = Draw.MolToImage(mol_obj, size=(400, 400))
+            # Draw molecule with high resolution (1200x1200) for crisp, clear images
+            # Modern RDKit API with high-quality settings
+            img = Draw.MolToImage(
+                mol_obj,
+                size=(1200, 1200),
+                kekulize=True,
+                wedgeBonds=True,
+                fitImage=True
+            )
 
-            # Convert to base64 for embedding
+            # Convert to base64 for embedding with high quality
             buffered = io.BytesIO()
-            img.save(buffered, format="PNG")
+            img.save(buffered, format="PNG", optimize=False)
             img_str = base64.b64encode(buffered.getvalue()).decode()
 
             self.log(state, f"✅ Generated RDKit visualization for {mol.name}")
@@ -108,6 +115,9 @@ class VisualizationModule(BaseModule):
 
     def _generate_placeholder_svg(self, mol: Molecule) -> str:
         """Generate fallback SVG placeholder"""
+        toxicity_text = f'Toxicity: {mol.properties.toxicity_score:.2f}' if mol.properties.toxicity_score is not None else 'Toxicity: N/A'
+        efficacy_text = f'<text x="150" y="200" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Efficacy: {mol.properties.efficacy_score:.2f}</text>' if mol.properties.efficacy_score is not None else ''
+
         svg = f'''
         <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
             <rect width="300" height="300" fill="#f0f0f0"/>
@@ -118,9 +128,9 @@ class VisualizationModule(BaseModule):
                 {mol.smiles[:40]}...
             </text>
             <text x="150" y="180" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">
-                Toxicity: {mol.properties.toxicity_score:.2f}
+                {toxicity_text}
             </text>
-            {f'<text x="150" y="200" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Efficacy: {mol.properties.efficacy_score:.2f}</text>' if mol.properties.efficacy_score else ''}
+            {efficacy_text}
             <circle cx="150" cy="240" r="30" fill="#4CAF50" opacity="0.3"/>
             <text x="150" y="248" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">
                 Drug-like
