@@ -15,6 +15,7 @@ from .modules.evaluation import EvaluationModule
 from .modules.visualization import VisualizationModule
 from .modules.data_sharing import DataSharingModule
 from .modules.payment import PaymentModule
+from .modules.cost_manager import CostManager, CostLimits
 
 
 class AgentOrchestrator:
@@ -33,9 +34,18 @@ class AgentOrchestrator:
         """
         self.config = config or {}
 
+        # Initialize cost manager with limits
+        cost_limits = CostLimits(
+            max_total_cost=self.config.get('max_total_cost', 10.0),
+            max_cost_per_molecule=self.config.get('max_cost_per_molecule', 0.50),
+            max_generation_cost=self.config.get('max_generation_cost', 2.0),
+            max_evaluation_cost=self.config.get('max_evaluation_cost', 5.0)
+        )
+        self.cost_manager = CostManager(cost_limits)
+
         # Initialize all modules
         self.planning_module = PlanningModule(config)
-        self.generation_module = MoleculeGenerationModule(config)
+        self.generation_module = MoleculeGenerationModule()
         self.evaluation_module = EvaluationModule(config)
         self.visualization_module = VisualizationModule(config)
         self.data_sharing_module = DataSharingModule(config)

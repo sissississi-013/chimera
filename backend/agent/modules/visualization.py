@@ -68,24 +68,46 @@ class VisualizationModule(BaseModule):
 
     async def _generate_2d_structure(self, mol: Molecule, state: AgentState) -> str:
         """
-        Generate 2D molecular structure diagram
-
-        In production:
-        from rdkit import Chem
-        from rdkit.Chem import Draw
-
-        mol_obj = Chem.MolFromSmiles(mol.smiles)
-        img = Draw.MolToImage(mol_obj, size=(300, 300))
-
-        # Convert to base64 for embedding
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-        return f"data:image/png;base64,{img_str}"
-
-        For now, return a placeholder SVG
+        Generate 2D molecular structure diagram using RDKit
         """
-        # Create a simple SVG placeholder
+        try:
+            # Try to use RDKit for real molecule visualization
+            from rdkit import Chem
+            from rdkit.Chem import Draw
+            from PIL import Image
+
+            # Parse SMILES
+            mol_obj = Chem.MolFromSmiles(mol.smiles)
+
+            if mol_obj is None:
+                self.log(state, f"⚠️  Invalid SMILES for {mol.name}, using placeholder")
+                return self._generate_placeholder_svg(mol)
+
+            # Generate 2D coordinates
+            from rdkit.Chem import AllChem
+            AllChem.Compute2DCoords(mol_obj)
+
+            # Draw molecule
+            img = Draw.MolToImage(mol_obj, size=(400, 400))
+
+            # Convert to base64 for embedding
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+
+            self.log(state, f"✅ Generated RDKit visualization for {mol.name}")
+            return f"data:image/png;base64,{img_str}"
+
+        except ImportError:
+            # RDKit not available, use placeholder
+            self.log(state, "⚠️  RDKit not available, using placeholder visualization")
+            return self._generate_placeholder_svg(mol)
+        except Exception as e:
+            self.log(state, f"⚠️  Visualization error for {mol.name}: {str(e)}")
+            return self._generate_placeholder_svg(mol)
+
+    def _generate_placeholder_svg(self, mol: Molecule) -> str:
+        """Generate fallback SVG placeholder"""
         svg = f'''
         <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
             <rect width="300" height="300" fill="#f0f0f0"/>

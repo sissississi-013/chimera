@@ -91,7 +91,6 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ molecules, onNavigate }) => {
 
       {molecules.length === 0 ? (
         <div className="library-empty">
-          <div className="empty-icon">📚</div>
           <h2>No Molecules in Library</h2>
           <p>Discover and save molecules to build your library</p>
           <button onClick={() => onNavigate('run')} className="btn-solid-blue">

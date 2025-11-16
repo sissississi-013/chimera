@@ -1,48 +1,54 @@
 """
-Molecule Generation Module - Creates candidate drug molecules
+Molecule Generation Module - Creates candidate drug molecules using NVIDIA NIMs
 """
 from typing import List, Optional
 import random
+import os
 from .base import BaseModule
 from ..models.agent_state import AgentState, AgentPhase
 from ..models.molecule import Molecule, MoleculeStatus
+from ..integrations.nvidia_nims import MolMIMClient, GenMolClient, NVIDIANIMError
 
 
 class MoleculeGenerationModule(BaseModule):
     """
-    Generates candidate molecules using various strategies:
-    1. Scaffold-based: Start with known drug scaffolds and modify
-    2. Random generation: Create random drug-like molecules
-    3. AI-based: Use ML models (future enhancement)
-
-    For now, we'll use a combination of known scaffolds and modifications.
+    Generates candidate molecules using NVIDIA NIMs:
+    1. MolMIM: Property-optimized molecule generation
+    2. GenMol: Fragment-based generation
+    3. Fallback: Scaffold-based generation if APIs fail
     """
 
-    # Common drug scaffolds (SMILES)
-    DRUG_SCAFFOLDS = [
-        "c1ccccc1",  # Benzene ring
-        "C1CCCCC1",  # Cyclohexane
-        "c1ccc2ccccc2c1",  # Naphthalene
-        "c1cnc2ccccc2c1",  # Quinoline
-        "c1ccc2c(c1)ccc1ccccc21",  # Anthracene
-        "C1CCC2=C(C1)C=CC=C2",  # Tetralin
-        "c1ccc2[nH]ccc2c1",  # Indole
-        "c1cnc[nH]1",  # Imidazole
+    # Seed molecules for MolMIM (known drug-like starting points)
+    SEED_MOLECULES = [
+        "CC(C)Cc1ccc(cc1)C(C)C(=O)O",  # Ibuprofen-like
+        "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",  # Caffeine-like
+        "CC(=O)Oc1ccccc1C(=O)O",  # Aspirin-like
+        "c1ccc2c(c1)ccc3c2cccc3",  # Anthracene scaffold
+        "c1ccc2[nH]ccc2c1",  # Indole scaffold
     ]
 
-    # Functional groups to add (SMILES fragments)
-    FUNCTIONAL_GROUPS = [
-        "C(=O)O",  # Carboxylic acid
+    # Molecular fragments for GenMol
+    DRUG_FRAGMENTS = [
+        "c1ccccc1",  # Benzene
+        "c1cnc[nH]1",  # Imidazole
+        "C1CCCCC1",  # Cyclohexane
+        "c1ccc2ccccc2c1",  # Naphthalene
         "C(=O)N",  # Amide
-        "N",  # Amine
-        "O",  # Hydroxyl
-        "C(=O)C",  # Ketone
         "S(=O)(=O)N",  # Sulfonamide
-        "F",  # Fluoro
-        "Cl",  # Chloro
-        "CF3",  # Trifluoromethyl
-        "OC",  # Methoxy
     ]
+
+    def __init__(self):
+        super().__init__()
+        self.use_real_apis = os.getenv('USE_REAL_APIS', 'true').lower() == 'true'
+
+        # Initialize NVIDIA NIM clients
+        try:
+            self.molmim_client = MolMIMClient() if self.use_real_apis else None
+            self.genmol_client = GenMolClient() if self.use_real_apis else None
+        except NVIDIANIMError as e:
+            self.molmim_client = None
+            self.genmol_client = None
+            print(f"⚠️  NVIDIA NIMs unavailable: {e}")
 
     async def execute(self, state: AgentState) -> AgentState:
         """
@@ -82,7 +88,7 @@ class MoleculeGenerationModule(BaseModule):
     async def _generate_molecules(self, count: int, target: Optional[str],
                                   state: AgentState) -> List[Molecule]:
         """
-        Generate molecules using scaffold-based approach
+        Generate molecules using NVIDIA NIMs or fallback methods
 
         Args:
             count: Number of molecules to generate
@@ -94,32 +100,123 @@ class MoleculeGenerationModule(BaseModule):
         """
         molecules = []
 
+        # Strategy 1: Try MolMIM for property-optimized generation
+        if self.molmim_client and count > 0:
+            try:
+                mol_batch_size = min(count, 20)  # Generate in batches
+                seed = random.choice(self.SEED_MOLECULES)
+
+                self.log(state, f"🧬 Using MolMIM to generate {mol_batch_size} molecules optimized for QED")
+
+                result = self.molmim_client.generate_molecules(
+                    seed_smiles=seed,
+                    property_name="QED",  # Drug-likeness
+                    num_molecules=mol_batch_size,
+                    min_similarity=0.3,
+                    minimize=False,  # Maximize QED
+                    iterations=3
+                )
+
+                # Parse MolMIM results
+                generated_mols = result.get('molecules', [])
+                for i, mol_data in enumerate(generated_mols[:count]):
+                    smiles = mol_data.get('smiles', mol_data.get('smi', ''))
+                    if smiles:
+                        molecule = Molecule(
+                            id=f"mol_{len(molecules)+1:03d}",
+                            smiles=smiles,
+                            name=f"MolMIM_{len(molecules)+1}",
+                            status=MoleculeStatus.GENERATED,
+                            generation_method="nvidia_molmim"
+                        )
+                        molecules.append(molecule)
+
+                self.log(state, f"✅ MolMIM generated {len(molecules)} molecules")
+
+            except Exception as e:
+                self.log(state, f"⚠️  MolMIM error: {str(e)}, trying GenMol...")
+
+        # Strategy 2: Try GenMol for fragment-based generation
+        if self.genmol_client and len(molecules) < count:
+            try:
+                remaining = count - len(molecules)
+                fragments = random.sample(self.DRUG_FRAGMENTS, min(3, len(self.DRUG_FRAGMENTS)))
+
+                self.log(state, f"🧬 Using GenMol to generate {remaining} molecules from fragments")
+
+                result = self.genmol_client.generate_from_fragments(
+                    fragments=fragments,
+                    num_molecules=remaining,
+                    temperature=1.0
+                )
+
+                # Parse GenMol results
+                generated_mols = result.get('molecules', [])
+                for i, mol_data in enumerate(generated_mols[:remaining]):
+                    smiles = mol_data.get('smiles', mol_data.get('smi', ''))
+                    if smiles:
+                        molecule = Molecule(
+                            id=f"mol_{len(molecules)+1:03d}",
+                            smiles=smiles,
+                            name=f"GenMol_{len(molecules)+1}",
+                            status=MoleculeStatus.GENERATED,
+                            generation_method="nvidia_genmol"
+                        )
+                        molecules.append(molecule)
+
+                self.log(state, f"✅ GenMol generated {len(molecules) - len(generated_mols)} molecules")
+
+            except Exception as e:
+                self.log(state, f"⚠️  GenMol error: {str(e)}, using fallback generation...")
+
+        # Strategy 3: Fallback to local generation if APIs failed or not enough molecules
+        if len(molecules) < count:
+            self.log(state, f"🔄 Generating remaining {count - len(molecules)} molecules locally")
+            local_mols = await self._generate_local_molecules(count - len(molecules), state)
+            molecules.extend(local_mols)
+
+        return molecules
+
+    async def _generate_local_molecules(self, count: int, state: AgentState) -> List[Molecule]:
+        """
+        Fallback local generation using simple scaffold-based approach
+
+        Args:
+            count: Number of molecules to generate
+            state: Agent state for logging
+
+        Returns:
+            List of generated molecules
+        """
+        molecules = []
+
+        # Fallback scaffolds (used when APIs are unavailable)
+        FALLBACK_SCAFFOLDS = [
+            "c1ccccc1",  # Benzene
+            "c1ccc2ccccc2c1",  # Naphthalene
+            "c1ccc2[nH]ccc2c1",  # Indole
+            "c1cnc[nH]1",  # Imidazole
+        ]
+
+        FUNCTIONAL_GROUPS = ["C(=O)O", "C(=O)N", "N", "O", "F", "Cl"]
+
         for i in range(count):
             try:
-                # Select a random scaffold
-                scaffold = random.choice(self.DRUG_SCAFFOLDS)
+                scaffold = random.choice(FALLBACK_SCAFFOLDS)
+                groups = random.sample(FUNCTIONAL_GROUPS, random.randint(1, 2))
+                smiles = self._combine_fragments(scaffold, groups)
 
-                # Add 1-3 functional groups
-                num_groups = random.randint(1, 3)
-                modifications = random.sample(self.FUNCTIONAL_GROUPS, num_groups)
-
-                # For now, simple concatenation (in real implementation, would use RDKit properly)
-                # This is a simplified approach; real chemistry would be more sophisticated
-                smiles = self._combine_fragments(scaffold, modifications)
-
-                # Create molecule object
                 molecule = Molecule(
                     id=f"mol_{i+1:03d}",
                     smiles=smiles,
-                    name=f"Candidate_{i+1}",
+                    name=f"Local_{i+1}",
                     status=MoleculeStatus.GENERATED,
-                    generation_method="scaffold_based_random"
+                    generation_method="local_scaffold"
                 )
-
                 molecules.append(molecule)
 
             except Exception as e:
-                self.log(state, f"Error generating molecule {i+1}: {str(e)}")
+                self.log(state, f"Error in local generation: {str(e)}")
                 continue
 
         return molecules

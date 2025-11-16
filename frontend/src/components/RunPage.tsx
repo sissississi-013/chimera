@@ -1,11 +1,11 @@
 /**
- * Run Page - Drug discovery execution interface
+ * Run Page - Drug discovery execution interface with conversational AI
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import chimeraApi from '../services/api';
 import type { AgentRequest, DiscoveryResult } from '../types';
 import ResultsDashboard from './ResultsDashboard';
-import AgentThinking from './AgentThinking';
+import ChatInterface from './ChatInterface';
 
 interface RunPageProps {
   onNavigate: (page: string, data?: any) => void;
@@ -16,39 +16,37 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DiscoveryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [goal, setGoal] = useState('Find a novel molecule to inhibit EGFR kinase');
-  const [target, setTarget] = useState('EGFR');
-  const [budget, setBudget] = useState(5.0);
-  const [maxToxicity, setMaxToxicity] = useState(0.5);
   const [logs, setLogs] = useState<string[]>([]);
   const [agentThoughts, setAgentThoughts] = useState<any[]>([]);
+  const [currentPhase, setCurrentPhase] = useState<string>('idle');
+  const [showChat, setShowChat] = useState(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleStartDiscovery = async (params: any) => {
+    // Convert chat params to AgentRequest
     const request: AgentRequest = {
-      goal,
-      target: target || undefined,
-      budget,
+      goal: params.goal,
+      target: params.target || undefined,
+      budget: params.budget || 5.0,
       constraints: {
-        max_toxicity: maxToxicity,
-        min_drug_likeness: 0.6,
+        max_toxicity: params.constraints?.max_toxicity || 0.5,
+        min_drug_likeness: params.constraints?.min_drug_likeness || 0.6,
       },
     };
 
     try {
       setIsRunning(true);
+      setShowChat(false);
       setError(null);
       setLogs(['Initializing Chimera agent...']);
       setAgentThoughts([]);
 
-      // Simulate agent thinking process
-      simulateAgentThinking();
+      // Start streaming real-time logs and thoughts
+      startRealtimeStreaming();
 
       // Call API
       const discoveryResult = await chimeraApi.discover(request);
 
-      // Show logs during execution
+      // Show final logs
       if (discoveryResult.response.logs) {
         setLogs(discoveryResult.response.logs);
       }
@@ -62,31 +60,37 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
     }
   };
 
-  const simulateAgentThinking = () => {
-    const thoughts = [
-      { time: 0, phase: 'planning', thought: 'Analyzing goal and creating execution strategy...' },
-      { time: 500, phase: 'planning', thought: 'Allocating budget: 60% evaluation, 20% monetization, 10% reserve' },
-      { time: 1000, phase: 'generation', thought: 'Selecting molecular scaffolds for generation...' },
-      { time: 1500, phase: 'generation', thought: 'Generated 10 candidate molecules' },
-      { time: 2000, phase: 'evaluation', thought: 'Applying Lipinski\'s Rule of Five filters...' },
-      { time: 2500, phase: 'evaluation', thought: 'Deciding: Call toxicity API? Cost: $0.05. Budget allows. Proceeding...' },
-      { time: 3000, phase: 'payment', thought: 'Received HTTP 402 Payment Required. Signing payment payload...' },
-      { time: 3500, phase: 'payment', thought: 'Payment authorized via CDP wallet. Retrying API call...' },
-      { time: 4000, phase: 'evaluation', thought: 'Toxicity data received. Molecule_1: 0.23 (PASS)' },
-      { time: 4500, phase: 'evaluation', thought: 'Evaluating efficacy. Validating dataset reliability...' },
-      { time: 5000, phase: 'decision', thought: 'Debating: Use expensive efficacy API? Expected value analysis...' },
-      { time: 5500, phase: 'decision', thought: 'Decision: Yes. Potential benefit exceeds cost. Budget: $4.25 remaining' },
-      { time: 6000, phase: 'visualization', thought: 'Rendering molecular structures for top 3 candidates...' },
-      { time: 6500, phase: 'monetization', thought: 'Preparing data package for marketplace upload...' },
-      { time: 7000, phase: 'monetization', thought: 'Marketplace requires $0.20 listing fee. Authorizing payment...' },
-      { time: 7500, phase: 'completed', thought: 'Discovery complete. 3 molecules monetized successfully.' },
-    ];
+  const startRealtimeStreaming = () => {
+    // Connect to backend event stream for real-time agent thinking
+    const eventSource = new EventSource('http://localhost:8000/api/v1/discover/stream');
 
-    thoughts.forEach((thought) => {
-      setTimeout(() => {
-        setAgentThoughts((prev) => [...prev, thought]);
-      }, thought.time);
-    });
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'log') {
+          setLogs(prev => [...prev, data.message]);
+        } else if (data.type === 'thought') {
+          setAgentThoughts(prev => [...prev, {
+            time: Date.now(),
+            phase: data.phase,
+            thought: data.content
+          }]);
+          setCurrentPhase(data.phase);
+        } else if (data.type === 'phase_change') {
+          setCurrentPhase(data.phase);
+          setLogs(prev => [...prev, `=== Phase: ${data.phase.toUpperCase()} ===`]);
+        } else if (data.type === 'complete') {
+          eventSource.close();
+        }
+      } catch (e) {
+        console.error('Error parsing stream data:', e);
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
   };
 
   const handleReset = () => {
@@ -95,10 +99,26 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
     setIsRunning(false);
     setLogs([]);
     setAgentThoughts([]);
+    setCurrentPhase('idle');
+    setShowChat(true);
   };
 
   const handleViewResults = () => {
     onNavigate('results');
+  };
+
+  const getPhaseColor = (phase: string) => {
+    const colors: Record<string, string> = {
+      planning: '#3B5BA5',
+      generating: '#A855F7',
+      evaluating: '#E85D75',
+      payment: '#4CAF50',
+      decision: '#FF9800',
+      visualizing: '#2196F3',
+      monetizing: '#9C27B0',
+      completed: '#4CAF50',
+    };
+    return colors[phase] || '#666';
   };
 
   return (
@@ -106,84 +126,12 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
       <div className="run-container">
         <div className="run-header">
           <h1>Discovery Run</h1>
-          <p>Configure and execute autonomous drug discovery</p>
+          <p>Chat with Chimera to plan your drug discovery campaign</p>
         </div>
 
-        {!isRunning ? (
-          <div className="run-form-container">
-            <form onSubmit={handleSubmit} className="run-form">
-              <div className="form-section">
-                <h3 className="form-section-title">Objective</h3>
-                <div className="form-group">
-                  <label>Discovery Goal</label>
-                  <textarea
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    placeholder="Describe what you want to discover..."
-                    rows={3}
-                    required
-                    disabled={isRunning}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Target Protein</label>
-                  <input
-                    type="text"
-                    value={target}
-                    onChange={(e) => setTarget(e.target.value)}
-                    placeholder="e.g., EGFR, VEGFR, BCR-ABL"
-                    disabled={isRunning}
-                  />
-                </div>
-              </div>
-
-              <div className="form-section">
-                <h3 className="form-section-title">Parameters</h3>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Budget</label>
-                    <div className="input-with-unit">
-                      <span className="input-currency">$</span>
-                      <input
-                        type="number"
-                        value={budget}
-                        onChange={(e) => setBudget(parseFloat(e.target.value))}
-                        min="0.1"
-                        max="100"
-                        step="0.1"
-                        required
-                        disabled={isRunning}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Toxicity Threshold</label>
-                    <div className="slider-value">{maxToxicity.toFixed(2)}</div>
-                    <input
-                      type="range"
-                      value={maxToxicity}
-                      onChange={(e) => setMaxToxicity(parseFloat(e.target.value))}
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      disabled={isRunning}
-                      className="slider"
-                    />
-                    <div className="slider-labels">
-                      <span>Safe</span>
-                      <span>Toxic</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button type="submit" className="run-button" disabled={isRunning}>
-                <span className="button-text">Execute Discovery</span>
-                <span className="button-icon">→</span>
-              </button>
-            </form>
+        {showChat && !isRunning ? (
+          <div className="chat-mode">
+            <ChatInterface onStartDiscovery={handleStartDiscovery} />
           </div>
         ) : result ? (
           <div className="completion-screen">
@@ -220,13 +168,40 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
             <div className="activity-header">
               <div className="activity-status">
                 <div className="status-pulse"></div>
-                <span>Agent Running...</span>
+                <span>Agent Running... </span>
+                <span className="current-phase" style={{ color: getPhaseColor(currentPhase) }}>
+                  {currentPhase.toUpperCase()}
+                </span>
               </div>
             </div>
 
             <div className="activity-grid">
-              <AgentThinking thoughts={agentThoughts} />
+              {/* Real-time Agent Thinking */}
+              <div className="agent-thinking-live">
+                <h3>Agent Reasoning</h3>
+                <div className="thinking-timeline">
+                  {agentThoughts.map((thought, index) => (
+                    <div key={index} className="thought-item animate-in">
+                      <div
+                        className="thought-indicator"
+                        style={{ backgroundColor: getPhaseColor(thought.phase) }}
+                      />
+                      <div className="thought-content">
+                        <div className="thought-phase">{thought.phase.toUpperCase()}</div>
+                        <div className="thought-text">{thought.thought}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {agentThoughts.length > 0 && (
+                    <div className="thought-pulse">
+                      <div className="pulse-dot" />
+                      <span>Thinking...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
+              {/* System Logs */}
               <div className="activity-logs">
                 <h3>System Logs</h3>
                 <div className="logs-container">
@@ -234,7 +209,7 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
                     <div className="log-entry log-placeholder">Waiting for logs...</div>
                   ) : (
                     logs.map((log, index) => (
-                      <div key={index} className="log-entry">
+                      <div key={index} className="log-entry animate-in">
                         <span className="log-time">[{new Date().toLocaleTimeString()}]</span>
                         <span className="log-text">{log}</span>
                       </div>
@@ -259,6 +234,116 @@ const RunPage: React.FC<RunPageProps> = ({ onNavigate, onResultsReady }) => {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .chat-mode {
+          height: 600px;
+          margin-top: 24px;
+        }
+
+        .animate-in {
+          animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .current-phase {
+          font-weight: 600;
+          margin-left: 8px;
+        }
+
+        .agent-thinking-live {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          padding: 20px;
+          overflow-y: auto;
+        }
+
+        .agent-thinking-live h3 {
+          margin: 0 0 16px 0;
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 16px;
+        }
+
+        .thinking-timeline {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .thought-item {
+          display: flex;
+          gap: 12px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 8px;
+          border-left: 3px solid;
+        }
+
+        .thought-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-top: 6px;
+          flex-shrink: 0;
+        }
+
+        .thought-content {
+          flex: 1;
+        }
+
+        .thought-phase {
+          font-size: 11px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.5);
+          margin-bottom: 4px;
+          letter-spacing: 0.5px;
+        }
+
+        .thought-text {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.8);
+          line-height: 1.5;
+        }
+
+        .thought-pulse {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px;
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 13px;
+        }
+
+        .pulse-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.6);
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 0.4;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.2);
+          }
+        }
+      `}</style>
     </div>
   );
 };
